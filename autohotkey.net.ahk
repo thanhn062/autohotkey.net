@@ -3,14 +3,107 @@
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 OnExit,OnExit
-Gui, font, s12
-Gui, Add, Edit, w0 h0
-Gui, Add, Edit, x10 y3 w740 h24 vURL, http://autohotkey.net
-Gui, Add, Button, xp+745 yp-1 w40 h25 gGo, Go
-Gui, Add, ActiveX, x0 y30 w800 h570 vWB, Shell.Explorer
+Gui, 1:font, s12
+Gui, 1:Add, Edit, w0 h0
+Gui, 1:Add, Edit, x10 y3 w740 h24 vURL, http://autohotkey.net
+Gui, 1:Add, Button, xp+745 yp-1 w40 h25 gGo, Go
+Gui, 1:Add, ActiveX, x0 y30 w800 h570 vWB, Shell.Explorer ; Main Web Browser
+Gui, 1:Add, ActiveX, x0 y0 w0 h0 vDB, Shell . Explorer
 WB.silent := true
 WB.Navigate("about:blank")
-Sleep 10
+DB.silent := true
+DB.Navigate("http://autohotkey.dx.am/index.php?action=getApp&category=all")
+while DB.busy or DB.ReadyState != 4
+   Sleep 10
+; get list of app
+appList := DB.document.body.innerHTML 
+loadApp(appList)
+; Connect button_ DOM
+IDnames = login|register|anon_submit
+Loop, parse, IDnames, |
+{
+	button_%A_LoopField% := WB.document.getElementById("button_" . A_LoopField)
+	obj = button_%A_LoopField%
+	ComObjConnect(%obj%, "button_" . A_LoopField . "_")
+}
+; Connect DOM
+;~ button_login := WB.document.getElementById("button_login")
+;~ button_register := WB.document.getElementById("button_register")
+;~ button_anon_submit := WB.document.getElementById("button_anon_submit")
+;~ ComObjConnect(button_login, "button_login_")
+;~ ComObjConnect(button_register, "button_register_")
+;~ ComObjConnect(button_anon_submit, "button_anon_submit_")
+
+Gui, 1:Show, w800 h600, Autohotkey.net
+;------ Log in GUI ----
+;~ Gui, 2:+Owner
+Gui, 2:Font, s15
+Gui, 2:Add, Text, x10 y10, ID
+Gui, 2:Add, Edit, xp+45 yp-3 w170 vid,
+Gui, 2:Add, Text, x10 y50, PW
+Gui, 2:Add, Edit, xp+45 yp-3 w170 +Password vpw,
+Gui, 2:Add, Button, xp+175 y6 w65 h73 +Default glogin_OK, OK 
+Gui, 2:Font, s12
+Gui, 2:Add, Checkbox, x55 y80, remember username ?
+;~ Gui, 2:Show
+return
+; Event handlers
+button_login_OnClick() {
+	global wb
+	Gui, 1:+Disabled
+	Gui, 2:+Alwaysontop +ToolWindow
+	Gui, 2:Show, w300 h100, Login
+}
+2GuiClose:
+	Gui, 1:-Disabled
+	Gui, 2:submit
+return
+
+Go:
+	gui, 1:submit, nohide
+	WB.Navigate(URL)
+return
+
+login_OK:
+	Gui, 1:-Disabled
+	Gui, 2:submit, nohide
+	if !pw
+		MsgBox, 4112, , The password field is blank.
+	else
+		login(id,pw)
+return
+
+OnExit:
+	FileDelete,%A_Temp%\*.DELETEME.html ;clean tmp file
+ExitApp
+
+; FUNCTIONS
+
+login(id,pw) {
+	global
+	Gui, 2:submit
+	WB.Navigate("autohotkey.dx.am")
+	while wb.busy or wb.ReadyState != 4
+	   Sleep 10
+	;~ MsgBox %wb.document.documentElement.outerHTML
+	form = 
+	(Ltrim Join
+	<form action="login.php" method="POST">
+		Username:<br>
+			<input type="text" name="username" value="%id%"><br>
+		Password:<br>
+			<input type="password" name="password" value="%pw%"><br>
+		<button type="submit" name="submit">Login
+	</form>
+	)
+	WB.document.body.innerHTML := form
+	WB.document.all.submit.click() 
+}
+loadApp(list, category := "") {
+	global
+	StringTrimRight, list, list, 2
+	Loop, parse,list, |
+		app = %app%<div class="app"><img src=""><br><div class="app_info"><span class="app_name">%A_LoopField%</span><br><span class="app_category">Games</span></div></div>
 html =
 (Ltrim Join
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
@@ -51,11 +144,11 @@ html =
 		#main_Nav--active {
 			color: white;
 		}
-		
+
 		/* ------------------  
 			Wrappers
 		 ------------------ */
-		 
+
 		.main_wrapper {
 			position: relative;
 			width: 100`%;
@@ -90,6 +183,7 @@ html =
 		/* ------------------  
 			Applications 
 		------------------ */
+
 		.app {
 			position: relative;
 			float: left;
@@ -171,13 +265,14 @@ html =
 			<li style="float: right; background-color: #f3f3f3; padding-bottom: 14px;">Search <input type="text" name="search"/></li>
 			<li onclick="acc_menu()" style="float: right; font-size: 30px; padding-bottom: 11px;"><span>&#10829;</span><span style="position: absolute; top: 10px; left: 20px">&#10991;</span></li>
 		</ul>
+		<!-- Account Menu -->
 		</div>
 			<div id="acc_menu" style="display: none">
 				<ul>
 				<div id="arrow-up" style="display: none"></div>
-					<li>Log In</li>
-					<li>Register</li>
-					<li>Submit App as Anonymous</li>
+					<li id="button_login">Log In</li>
+					<li id="button_register">Register</li>
+					<li id="button_anon_submit">Submit App as Anonymous</li>
 				</ul>
 			</div>
 
@@ -194,7 +289,7 @@ html =
 				}
 			}
 		</script>
-		
+		<!-- Categories -->
 		<div class="main_wrapper">
 		<div class="left_panel">
 			<ul>
@@ -207,88 +302,22 @@ html =
 			</ul>
 		</div>
 		<div class="right_panel">
-		
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Name</span><br><span class="app_category">Category</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-		<div class="app"><img src=""><br><div class="app_info"><span class="app_name">Code Ur List</span><br><span class="app_category">Games</span></div></div>
-
+		<!-- Apps -->
+		%app%
 		</div>
 		</div>
 	</body>
 </html>
 )
-;~ WB.document.write(html)
 Display(WB,html)
-
-; LOG IN
-/*
-WB.Navigate("autohotkey.dx.am")
 while wb.busy or wb.ReadyState != 4
    Sleep 10
-;~ MsgBox %wb.document.documentElement.outerHTML
-form = 
-(Ltrim Join
-<form action="login.php" method="POST">
-	Username:<br>
-		<input type="text" name="username" value="%ID%"><br>
-	Password:<br>
-		<input type="password" name="password" value="%PW%"><br>
-	<button type="submit" name="submit">Login
-</form>
-)
-WB.document.body.innerHTML := form
-WB.document.all.submit.click() 
-*/
-while wb.busy or wb.ReadyState != 4
-   Sleep 10
+; Change active color
 WB.document.getElementById("main_Nav--active").style.backgroundColor := "#008CBA"
-WB.document.getElementById("app_category--active").style.backgroundColor := "#008CBA"
-Gui, Show, w800 h600, Autohotkey.net
-return
-
-Go:
-gui, submit, nohide
-WB.Navigate(URL)
-return
-OnExit:
-	FileDelete,%A_Temp%\*.DELETEME.html ;clean tmp file
-ExitApp
-; FUNCTIONS
-loadApp(category) {
-	
+if !category
+	WB.document.getElementById("app_category--active").style.backgroundColor := "#008CBA"
+else if (category = "productivity")
+	return
 }
 Display(WB,html_str) {
 	Count:=0
