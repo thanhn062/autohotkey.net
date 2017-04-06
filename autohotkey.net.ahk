@@ -3,6 +3,7 @@
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 OnExit,OnExit
+MYAPP_PROTOCOL:="AHKNET"
 Gui, 1:font, s12
 Gui, 1:Add, Edit, w0 h0
 Gui, 1:Add, Edit, x10 y3 w740 h24 vURL, http://autohotkey.net
@@ -13,6 +14,7 @@ WB.silent := true
 WB.Navigate("about:blank")
 DB.silent := true
 DB.Navigate("http://autohotkey.dx.am/index.php?action=getApp&category=all")
+Gui, 1:Show, w800 h600, Autohotkey.net
 while DB.busy or DB.ReadyState != 4
    Sleep 10
 ; get list of app
@@ -26,6 +28,7 @@ Loop, parse, IDnames, |
 	obj = button_%A_LoopField%
 	ComObjConnect(%obj%, "button_" . A_LoopField . "_")
 }
+ComObjConnect(WB, WB_events) 
 ; Connect DOM
 ;~ button_login := WB.document.getElementById("button_login")
 ;~ button_register := WB.document.getElementById("button_register")
@@ -34,7 +37,6 @@ Loop, parse, IDnames, |
 ;~ ComObjConnect(button_register, "button_register_")
 ;~ ComObjConnect(button_anon_submit, "button_anon_submit_")
 
-Gui, 1:Show, w800 h600, Autohotkey.net
 ;------ Log in GUI ----
 ;~ Gui, 2:+Owner
 Gui, 2:Font, s15
@@ -78,7 +80,6 @@ OnExit:
 ExitApp
 
 ; FUNCTIONS
-
 login(id,pw) {
 	global
 	Gui, 2:submit
@@ -93,7 +94,7 @@ login(id,pw) {
 			<input type="text" name="username" value="%id%"><br>
 		Password:<br>
 			<input type="password" name="password" value="%pw%"><br>
-		<button type="submit" name="submit">Login
+		<button type="submit" name="submit">Login</button>
 	</form>
 	)
 	WB.document.body.innerHTML := form
@@ -102,8 +103,29 @@ login(id,pw) {
 loadApp(list, category := "") {
 	global
 	StringTrimRight, list, list, 2
-	Loop, parse,list, |
-		app = %app%<div class="app"><img src=""><br><div class="app_info"><span class="app_name">%A_LoopField%</span><br><span class="app_category">Games</span></div></div>
+	Loop, parse,list, #
+	{
+		Loop, parse, A_LoopField, |
+		{
+			StringReplace, divider, A_LoopField, `&nbsp;, | , all
+			StringSplit, app_,  divider, |
+			StringTrimLeft, app_2, app_2, 1
+			app_%app_1% := app_2
+		}
+		;~ MsgBox % app_id "," app_name "," app_img "," app_category
+		; App display
+		app = 
+		(Ltrim Join
+		%app%
+		<div class="app">
+			<a href="%MYAPP_PROTOCOL%://getAppInfo/%app_id%"><img src="%app_img%"></a><br>
+			<div class="app_info">
+				<span class="app_name">%app_name%</span><br>
+				<span class="app_category">%app_category%</span>
+			</div>
+		</div>
+		)
+	}
 html =
 (Ltrim Join
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
@@ -319,6 +341,45 @@ if !category
 else if (category = "productivity")
 	return
 }
+getAppInfo(id) {
+	global
+	DB.Navigate("http://autohotkey.dx.am?action=getAppInfo&id=" . id)
+	while DB.busy or DB.ReadyState != 4
+		Sleep 10
+	MsgBox % DB.document.body.innerHTML
+}
+class WB_events {
+	;for more events and other, see http://msdn.microsoft.com/en-us/library/aa752085
+	NavigateComplete2(wb) {
+		wb.Stop() ;blocked all navigation, we want our own stuff happening
+	}
+	DownloadComplete(wb, NewURL) {
+		wb.Stop() ;blocked all navigation, we want our own stuff happening
+	}
+	DocumentComplete(wb, NewURL) {
+		wb.Stop() ;blocked all navigation, we want our own stuff happening
+	}
+	BeforeNavigate2(wb, NewURL)
+	{
+		wb.Stop() ;blocked all navigation, we want our own stuff happening
+		;parse the url
+		global MYAPP_PROTOCOL
+		if (InStr(NewURL,MYAPP_PROTOCOL "://")==1) { ;if url starts with "myapp://"
+			what := SubStr(NewURL,Strlen(MYAPP_PROTOCOL)+4) ;get stuff after "myapp://"
+			StringSplit, command_, what, /
+			if (command_1 = "getAppInfo")
+				getAppInfo(command_2)
+			/*
+			if InStr(what,"msgbox/hello")
+				MsgBox Hello world!
+			else if InStr(what,"soundplay/ding")
+				SoundPlay, %A_WinDir%\Media\ding.wav
+				*/
+		}
+		;else do nothing
+	}
+}
+
 Display(WB,html_str) {
 	Count:=0
 	while % FileExist(f:=A_Temp "\" A_TickCount A_NowUTC "-tmp" Count ".DELETEME.html")
