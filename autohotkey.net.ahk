@@ -17,9 +17,7 @@ DB.Navigate("http://autohotkey.dx.am/index.php?action=getApp&category=all")
 Gui, 1:Show, w800 h600, Autohotkey.net
 while DB.busy or DB.ReadyState != 4
    Sleep 10
-; get list of app
-appList := DB.document.body.innerHTML 
-loadApp(appList)
+loadApp(DB.document.body.innerHTML)
 ; Connect button_ DOM
 IDnames = login|register|anon_submit
 Loop, parse, IDnames, |
@@ -101,7 +99,7 @@ login(id,pw) {
 	WB.document.all.submit.click() 
 }
 loadApp(list, category := "") {
-	global
+	global wb, MYAPP_PROTOCOL
 	StringTrimRight, list, list, 2
 	Loop, parse,list, #
 	{
@@ -214,12 +212,12 @@ html =
 			padding: 13px;
 		}
 		.app_name {
-			font-size: 12px;
+			font-size: 15px;
 			overflow: hidden;
 		}
 		.app_category {
 			color: #707070;
-			font-size: 15px;
+			font-size: 12px;
 		}
 		#app_category--active {
 			color: white;
@@ -346,10 +344,11 @@ getAppInfo(id) {
 	DB.Navigate("http://autohotkey.dx.am?action=getAppInfo&id=" . id)
 	while DB.busy or DB.ReadyState != 4
 		Sleep 10
-	MsgBox % DB.document.body.innerHTML
+	return % DB.document.body.innerHTML
 }
 class WB_events {
 	;for more events and other, see http://msdn.microsoft.com/en-us/library/aa752085
+	/*
 	NavigateComplete2(wb) {
 		wb.Stop() ;blocked all navigation, we want our own stuff happening
 	}
@@ -358,17 +357,277 @@ class WB_events {
 	}
 	DocumentComplete(wb, NewURL) {
 		wb.Stop() ;blocked all navigation, we want our own stuff happening
-	}
+	} 
+	*/
 	BeforeNavigate2(wb, NewURL)
 	{
 		wb.Stop() ;blocked all navigation, we want our own stuff happening
 		;parse the url
-		global MYAPP_PROTOCOL
+		global MYAPP_PROTOCOL, db
+		
 		if (InStr(NewURL,MYAPP_PROTOCOL "://")==1) { ;if url starts with "myapp://"
 			what := SubStr(NewURL,Strlen(MYAPP_PROTOCOL)+4) ;get stuff after "myapp://"
 			StringSplit, command_, what, /
-			if (command_1 = "getAppInfo")
-				getAppInfo(command_2)
+			; Open clicked app
+			if (command_1 = "getAppInfo") {
+				app := getAppInfo(command_2)
+				Loop, parse, app, |
+				{
+					StringReplace, divider, A_LoopField, `&nbsp;, | , all
+					StringSplit, app_,  divider, |
+					StringTrimLeft, app_2, app_2, 1
+					app_%app_1% := app_2
+				}
+				; Translate # into stars
+				if app_star = 0
+					app_star = &#9734;&#9734;&#9734;&#9734;&#9734;
+				else if app_star = 1
+					app_star = &#9733;&#9734;&#9734;&#9734;&#9734;
+				else if app_star = 2
+					app_star = &#9733;&#9733;&#9734;&#9734;&#9734;
+				else if app_star = 3
+					app_star = &#9733;&#9733;&#9733;&#9734;&#9734;
+				else if app_star = 4
+					app_star = &#9733;&#9733;&#9733;&#9733;&#9734;
+				else if app_star = 5
+					app_star = &#9733;&#9733;&#9733;&#9733;&#9733;
+				html =
+				(Ltrim Join
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+    "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+	<head>
+		<style>
+		body {margin: 0;font-family: "Verdana", Times, serif;}
+		a{text-decoration: none}
+		/* ------------------  
+			Main Navigation
+		 ------------------ */
+
+		#main_Nav {
+			top: 0;
+			position: fixed;
+			overflow: hidden;
+			float: left;
+			width: 100`%;
+			height: 60px;
+			background-color: #f3f3f3;
+			z-index: 100;
+		}
+		#main_Nav ul {
+			margin: 0;
+		}
+		#main_Nav ul li {
+			position: relative;
+			padding: 16px;
+			overflow: hidden;
+			float: left;
+			border: 1px solid #e7e7e7;
+			list-style-type: none;
+		}
+		#main_Nav ul li:hover {
+			background-color: #e3e3e3;
+		}
+		#main_Nav--active {
+			color: white;
+		}
+
+		/* ------------------  
+			Wrappers
+		 ------------------ */
+
+		.main_wrapper {
+			position: relative;
+			width: 100`%;
+		}
+		.left_panel {
+			position: fixed;
+			margin-top: 60px;
+			width: 20`%;
+			border: 1px solid black;
+			background-color: #f3f3f3;
+			height: 100`%
+		}
+		.left_panel ul {
+			margin: 0;
+			list-style-type: none;
+		}
+		.left_panel ul li {
+			border-bottom: 1px solid black;
+			padding: 10px;
+			font-size: 12px;
+		}
+		.right_panel {
+			margin-top: 60px;
+			position: absolute;
+			right: 0;
+			top: 0;
+			width: 79`%;
+		}
+		
+		/* ------------------  
+			Applications 
+		------------------ */
+
+		.app {
+			position: relative;
+			float: left;
+			width: 100px;
+			height: 125px;
+			padding: 13px;
+		}
+		.app_name {
+			font-size: 15px;
+			overflow: hidden;
+		}
+		.app_category {
+			color: #707070;
+			font-size: 12px;
+		}
+		#app_category--active {
+			color: white;
+		}
+		.app_info {
+			position: absolute;
+			bottom: 0;
+		}
+		.app img {
+			height: 100px;
+			width: 100px;
+			border: 1px solid black; 
+			display: block; 
+			margin: 0 auto;
+		}
+		/* ------------------  
+			Account Menu 
+		 ------------------ */
+
+		#acc_menu {
+			position: fixed;
+			z-index: 1;
+			font-size: 17px;
+			top: 60px;
+			right: 92px;
+		}
+		#acc_menu ul {
+			margin: 0;
+		}
+		#acc_menu li {
+			border: 1px solid #e7e7e7;
+			background-color: #e7e7e7;
+			padding: 5px;
+			list-style-type: none;
+			border: 1px solid black;
+			margin-top: 1px;
+		}
+		#acc_menu li:hover {
+			background-color: #e3e3e3;
+		}
+		#arrow-up {
+			position: relative;
+			z-index: 1;
+			width: 0; 
+			height: 0; 
+			border-left: 8px solid transparent;
+			border-right: 8px solid transparent;
+			top: 0px;
+			left:  17px;
+			border-bottom: 8px solid black;
+			margin: 0;
+			padding: 0;
+		}
+		</style>
+	</head>
+	
+	<body>
+		<div id="main_Nav">
+		<ul>
+			<a href="%MYAPP_PROTOCOL%://navigate/home"><li id="main_Nav--active" style="background-color: #008CBA"><span style="font-size:1.5em">&#8678;</span> App</li></a>
+			<li style="float: right; background-color: #f3f3f3; padding-bottom: 14px;">Search <input type="text" name="search"/></li>
+			<li onclick="acc_menu()" style="float: right; font-size: 30px; padding-bottom: 11px;"><span>&#10829;</span><span style="position: absolute; top: 10px; left: 20px">&#10991;</span></li>
+		</ul>
+		<!-- Account Menu -->
+		</div>
+			<div id="acc_menu" style="display: none">
+				<ul>
+				<div id="arrow-up" style="display: none"></div>
+					<li id="button_login">Log In</li>
+					<li id="button_register">Register</li>
+					<li id="button_anon_submit">Submit App as Anonymous</li>
+				</ul>
+			</div>
+
+		<script>
+			function acc_menu() {
+				var x = document.getElementById('acc_menu');
+				var y = document.getElementById('arrow-up');
+				if (x.style.display === 'none') {
+					x.style.display = 'block';
+					y.style.display = 'block';
+				} else {
+					x.style.display = 'none';
+					y.style.display = 'none';
+				}
+			}
+		</script>
+		<!-- Categories -->
+		<div class="main_wrapper">
+		<div class="left_panel">
+			<ul>
+				<li style="text-align:  center"><img style="width:100px;height:100px" src="%app_img%"></li>
+				<li>
+					<table>
+						<tr>
+							<td>Name</td>
+							<td>%app_name%</td>
+						</tr>
+						<tr>
+							<td>Category</td>
+							<td>%app_category%</td>
+						</tr>
+						<tr>
+							<td>Author</td>
+							<td>%app_author%</td>
+						</tr>
+						<tr>
+							<td>Version</td>
+							<td>%app_version%</td>
+						</tr>
+						<tr>
+							<td>Rate</td>
+							<td>%app_star%</td>
+						</tr>
+						<tr>
+							<td>Size</td>
+							<td>%app_size%</td>
+						</tr>
+						<tr>
+							<td>Download</td>
+							<td>%app_download%</td>
+						</tr>
+					</table>
+				</li>
+			</ul>
+		</div>
+		<div class="right_panel">
+		<!-- Apps Info-->
+		%app_about%
+		</div>
+		</div>
+	</body>
+</html>
+				)
+				Display(WB,html)
+				;~ WB.GoBack()
+			}
+			else if (command_1 = "navigate") {
+				if (command_2 = "home") {
+					DB.Navigate("http://autohotkey.dx.am/index.php?action=getApp&category=all")
+					while DB.busy or DB.ReadyState != 4
+					   Sleep 10
+					loadApp(DB.document.body.innerHTML)
+				}
+			}
 			/*
 			if InStr(what,"msgbox/hello")
 				MsgBox Hello world!
